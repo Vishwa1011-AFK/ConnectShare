@@ -1,0 +1,188 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { ModeToggle } from "./mode-toggle"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { cn } from "@/lib/utils"
+import { motion } from "framer-motion"
+import { Settings, Menu } from "lucide-react"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+
+const navItems = [
+  { name: "Home", path: "/" },
+  { name: "Share", path: "/share" },
+  { name: "Receive", path: "/receive" },
+  { name: "Peers", path: "/peers" },
+]
+
+export default function Header() {
+  const pathname = usePathname()
+  const [isHovered, setIsHovered] = useState<string | null>(null)
+  const [scrolled, setScrolled] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Handle scroll effect for header
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10)
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    setMounted(true)
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll)
+    }
+  }, [])
+
+  if (!mounted) return null
+
+  return (
+    <header
+      className={cn(
+        "sticky top-0 z-50 w-full border-b transition-all duration-200",
+        scrolled
+          ? "border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+          : "border-transparent bg-background",
+      )}
+    >
+      <div className="container flex h-16 items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
+            <motion.div
+              initial={{ rotate: 0 }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear", repeatDelay: 10 }}
+              className="size-8 text-primary"
+            >
+              <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M12.0799 24L4 19.2479L9.95537 8.75216L18.04 13.4961L18.0446 4H29.9554L29.96 13.4961L38.0446 8.75216L44 19.2479L35.92 24L44 28.7521L38.0446 39.2479L29.96 34.5039L29.9554 44H18.0446L18.04 34.5039L9.95537 39.2479L4 28.7521L12.0799 24Z"
+                  fill="currentColor"
+                ></path>
+              </svg>
+            </motion.div>
+            <span className="text-xl font-bold tracking-tight">ConnectShare</span>
+          </Link>
+        </div>
+
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-6">
+          {navItems.map((item) => (
+            <div
+              key={item.path}
+              className="relative"
+              onMouseEnter={() => setIsHovered(item.path)}
+              onMouseLeave={() => setIsHovered(null)}
+            >
+              <Link
+                href={item.path}
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  pathname === item.path ? "text-primary" : "text-muted-foreground",
+                )}
+              >
+                {item.name}
+              </Link>
+              {isHovered === item.path && (
+                <motion.div
+                  layoutId="nav-indicator"
+                  className="absolute -bottom-1 left-0 right-0 h-0.5 bg-primary"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                />
+              )}
+              {pathname === item.path && !isHovered && (
+                <motion.div layoutId="nav-indicator" className="absolute -bottom-1 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </div>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-4">
+          <ModeToggle />
+          <Link href="/settings" className="hidden md:block">
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <Settings className="h-5 w-5" />
+              <span className="sr-only">Settings</span>
+            </Button>
+          </Link>
+          <Avatar className="hidden md:block">
+            <AvatarImage src="/placeholder.svg?height=40&width=40" alt="User" />
+            <AvatarFallback>CS</AvatarFallback>
+          </Avatar>
+
+          {/* Mobile Menu */}
+          <Sheet>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[80vw] sm:w-[350px]">
+              <SheetHeader className="mb-6">
+                <SheetTitle className="flex items-center gap-2">
+                  <div className="size-6 text-primary">
+                    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M12.0799 24L4 19.2479L9.95537 8.75216L18.04 13.4961L18.0446 4H29.9554L29.96 13.4961L38.0446 8.75216L44 19.2479L35.92 24L44 28.7521L38.0446 39.2479L29.96 34.5039L29.9554 44H18.0446L18.04 34.5039L9.95537 39.2479L4 28.7521L12.0799 24Z"
+                        fill="currentColor"
+                      ></path>
+                    </svg>
+                  </div>
+                  ConnectShare
+                </SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3 mb-6">
+                  <Avatar>
+                    <AvatarImage src="/placeholder.svg?height=40&width=40" alt="User" />
+                    <AvatarFallback>CS</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">User</p>
+                    <p className="text-sm text-muted-foreground">user@example.com</p>
+                  </div>
+                </div>
+                <nav className="flex flex-col gap-2">
+                  {navItems.map((item) => (
+                    <Link
+                      key={item.path}
+                      href={item.path}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        pathname === item.path ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                  <Link
+                    href="/settings"
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      pathname === "/settings" ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground",
+                    )}
+                  >
+                    <Settings className="h-4 w-4" />
+                    Settings
+                  </Link>
+                </nav>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </header>
+  )
+}
