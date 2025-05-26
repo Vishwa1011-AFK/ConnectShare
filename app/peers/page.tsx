@@ -1,152 +1,125 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, UserCheck, UserX, Wifi, WifiOff, RefreshCw } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { Search, UserCheck, UserX, Wifi, WifiOff, RefreshCw, UserPlus, LogIn } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-
-type PeerStatus = "available" | "connected" | "busy"
-
-type Peer = {
-  id: string
-  name: string
-  status: PeerStatus
-  avatar: string
-}
+import { useWebRTC, UIPeer, PeerStatus as ContextPeerStatus } from "@/contexts/WebRTCContext"
+import Link from "next/link"
 
 export default function PeersPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [peers, setPeers] = useState<Peer[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const { 
+    peers: contextPeers, 
+    initiateConnection, 
+    localPeer, 
+    isSignalingConnected, 
+    connectSignaling,
+    disconnectSignaling
+  } = useWebRTC();
+  
   const { toast } = useToast()
-
-  // Mock data for demonstration
-  const fetchPeers = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // In a real app, this would be replaced with WebRTC peer discovery
-      const mockPeers: Peer[] = [
-        {
-          id: "peer-123",
-          name: "Alex's Device",
-          status: "available",
-          avatar: "/placeholder.svg?height=40&width=40",
-        },
-        {
-          id: "peer-456",
-          name: "Sarah's Laptop",
-          status: "available",
-          avatar: "/placeholder.svg?height=40&width=40",
-        },
-        {
-          id: "peer-789",
-          name: "Meeting Room",
-          status: "available",
-          avatar: "/placeholder.svg?height=40&width=40",
-        },
-        {
-          id: "peer-012",
-          name: "John's Phone",
-          status: "connected",
-          avatar: "/placeholder.svg?height=40&width=40",
-        },
-        {
-          id: "peer-345",
-          name: "Conference Room",
-          status: "busy",
-          avatar: "/placeholder.svg?height=40&width=40",
-        },
-      ]
-
-      setPeers(mockPeers)
-    } catch (err) {
-      setError("Failed to load peers. Please try again.")
-      toast({
-        title: "Error",
-        description: "Failed to load peers. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-      setIsRefreshing(false)
-    }
-  }
+  const [isLoading, setIsLoading] = useState(!isSignalingConnected && !localPeer);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchPeers()
-  }, [])
+    setIsLoading(!isSignalingConnected && !localPeer);
+  }, [isSignalingConnected, localPeer]);
 
-  const refreshPeers = () => {
-    setIsRefreshing(true)
-    fetchPeers()
-  }
+  const refreshPeersList = () => {
+    if (!isSignalingConnected) {
+        toast({ title: "Not Connected", description: "Connect to signaling in settings first.", variant: "destructive"});
+        return;
+    }
+    setIsRefreshing(true);
+    setTimeout(() => setIsRefreshing(false), 1000); 
+  };
 
-  const filteredPeers = peers.filter((peer) => peer.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const handleConnectToSignaling = () => {
+    const savedSettings = JSON.parse(localStorage.getItem("connectshare-settings") || "{}");
+    const displayName = savedSettings.displayName;
+    if (displayName) {
+      connectSignaling(displayName);
+    } else {
+      toast({
+        title: "Display Name Needed",
+        description: "Please set your display name in Settings first.",
+        variant: "destructive",
+        action: <Button onClick={() => window.location.href = '/settings'}>Go to Settings</Button>
+      });
+    }
+  };
+  
+  const uiPeers = useMemo(() => {
+    return contextPeers.filter(p => p.id !== localPeer?.id);
+  }, [contextPeers, localPeer]);
+
+  const filteredPeers = useMemo(() => 
+    uiPeers.filter((peer) => peer.name.toLowerCase().includes(searchQuery.toLowerCase())),
+    [uiPeers, searchQuery]
+  );
 
   const availablePeers = filteredPeers.filter((peer) => peer.status === "available")
+  const connectingPeers = filteredPeers.filter((peer) => peer.status === "connecting")
   const connectedPeers = filteredPeers.filter((peer) => peer.status === "connected")
   const busyPeers = filteredPeers.filter((peer) => peer.status === "busy")
 
   const handleConnect = (peerId: string) => {
-    setPeers(peers.map((peer) => (peer.id === peerId ? { ...peer, status: "connected" } : peer)))
-
-    toast({
-      title: "Connected",
-      description: `Successfully connected to ${peers.find((p) => p.id === peerId)?.name}`,
-      variant: "default",
-    })
-  }
-
-  const handleDisconnect = (peerId: string) => {
-    setPeers(peers.map((peer) => (peer.id === peerId ? { ...peer, status: "available" } : peer)))
-
-    toast({
-      title: "Disconnected",
-      description: `Disconnected from ${peers.find((p) => p.id === peerId)?.name}`,
-      variant: "default",
-    })
-  }
-
-  const getStatusIcon = (status: PeerStatus) => {
-    switch (status) {
-      case "available":
-        return <Wifi className="h-4 w-4" />
-      case "connected":
-        return <UserCheck className="h-4 w-4" />
-      case "busy":
-        return <WifiOff className="h-4 w-4" />
+    const peerToConnect = uiPeers.find(p => p.id === peerId);
+    if (peerToConnect) {
+        initiateConnection(peerId);
+        toast({
+          title: "Connecting...",
+          description: `Attempting to connect to ${peerToConnect.name}`,
+        });
     }
-  }
+  };
 
-  const getStatusColor = (status: PeerStatus) => {
-    switch (status) {
-      case "available":
-        return "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-      case "connected":
-        return "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
-      case "busy":
-        return "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20"
+  const handleDisconnectPeer = (peerId: string) => {
+    const rtcPeer = webRTCManager.getPeerConnection(peerId);
+    if (rtcPeer) {
+      webRTCManager.cleanupPeerConnection(peerId);
+      toast({
+        title: "Disconnected",
+        description: `Disconnected from ${rtcPeer.name}.`,
+      });
     }
-  }
+  };
 
-  const PeerItem = ({ peer }: { peer: Peer }) => (
+  const getStatusIcon = (status: ContextPeerStatus) => {
+    switch (status) {
+      case "available": return <Wifi className="h-4 w-4" />;
+      case "connecting": return <RefreshCw className="h-4 w-4 animate-spin" />;
+      case "connected": return <UserCheck className="h-4 w-4" />;
+      case "disconnected": return <WifiOff className="h-4 w-4" />;
+      case "failed": return <UserX className="h-4 w-4" />;
+      default: return <WifiOff className="h-4 w-4" />;
+    }
+  };
+
+  const getStatusColor = (status: ContextPeerStatus) => {
+    switch (status) {
+      case "available": return "bg-green-500/10 text-green-500 hover:bg-green-500/20";
+      case "connecting": return "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20";
+      case "connected": return "bg-teal-500/10 text-teal-500 hover:bg-teal-500/20";
+      case "disconnected": return "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20";
+      case "failed": return "bg-red-500/10 text-red-500 hover:bg-red-500/20";
+      default: return "bg-gray-500/10 text-gray-500 hover:bg-gray-500/20";
+    }
+  };
+
+  const PeerItem = ({ peer }: { peer: UIPeer }) => (
     <motion.div
+      layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
@@ -155,7 +128,7 @@ export default function PeersPage() {
     >
       <div className="flex items-center gap-4">
         <Avatar className="h-12 w-12 border border-border/50">
-          <AvatarImage src={peer.avatar || "/placeholder.svg"} alt={peer.name} />
+          <AvatarImage src={`https://avatar.vercel.sh/${peer.id}.png`} alt={peer.name} />
           <AvatarFallback>{peer.name.substring(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
         <div>
@@ -172,27 +145,38 @@ export default function PeersPage() {
         </div>
       </div>
       <div>
-        {peer.status === "available" ? (
+        {peer.status === "available" && (
           <Button
             size="sm"
             onClick={() => handleConnect(peer.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-100"
+            className="opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-100 gap-1"
           >
-            Connect
+            <UserPlus className="h-4 w-4"/> Connect
           </Button>
-        ) : (
+        )}
+        {(peer.status === "connected" || peer.status === "connecting") && (
           <Button
             size="sm"
             variant="outline"
-            onClick={() => handleDisconnect(peer.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-100"
+            onClick={() => handleDisconnectPeer(peer.id)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-100 gap-1"
           >
-            Disconnect
+            <UserX className="h-4 w-4"/> Disconnect
+          </Button>
+        )}
+        {(peer.status === "disconnected" || peer.status === "failed") && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => handleConnect(peer.id)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-100 gap-1"
+          >
+            <RefreshCw className="h-4 w-4"/> Retry
           </Button>
         )}
       </div>
     </motion.div>
-  )
+  );
 
   const PeerSectionSkeleton = () => (
     <div className="mb-8">
@@ -217,9 +201,9 @@ export default function PeersPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 
-  const PeerSection = ({ title, peers, icon }: { title: string; peers: Peer[]; icon: React.ReactNode }) => (
+  const PeerSection = ({ title, peers, icon }: { title: string; peers: UIPeer[]; icon: React.ReactNode }) => (
     <div className="mb-8">
       <div className="flex items-center gap-2 mb-4">
         <div className="p-1 rounded-md bg-primary/10 text-primary">{icon}</div>
@@ -247,7 +231,7 @@ export default function PeersPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 
   return (
     <div className="container py-8">
@@ -265,7 +249,7 @@ export default function PeersPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={refreshPeers}
+            onClick={refreshPeersList}
             disabled={isLoading || isRefreshing}
             className="gap-2"
           >
