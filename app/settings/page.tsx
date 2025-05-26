@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,14 +8,14 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { motion } from "framer-motion"
 import { useTheme } from "next-themes"
-import { ArrowRight, Info, Moon, Sun, Laptop, Save, Check } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { ArrowRight, Info, Moon, Sun, Laptop, Save, Check, LogIn, LogOut } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
+import { useWebRTC } from "@/contexts/WebRTCContext"
 
-// Form validation schema
 const formSchema = z.object({
   displayName: z
     .string()
@@ -25,16 +25,16 @@ const formSchema = z.object({
     .max(30, {
       message: "Display name must not exceed 30 characters.",
     }),
-  enableAnimations: z.boolean().default(true),
-  enableNotifications: z.boolean().default(true),
+  enableAnimations: z.boolean(),
+  enableNotifications: z.boolean(),
 })
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
+  const { connectSignaling, disconnectSignaling, isSignalingConnected, localPeer } = useWebRTC();
 
-  // Initialize form with react-hook-form
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -44,32 +44,71 @@ export default function SettingsPage() {
     },
   })
 
+  useEffect(() => {
+    const savedSettings = JSON.parse(localStorage.getItem("connectshare-settings") || "{}");
+    if (localPeer) {
+      form.setValue('displayName', localPeer.name);
+    } else if (savedSettings.displayName) {
+      form.setValue('displayName', savedSettings.displayName);
+    }
+    if (typeof savedSettings.enableAnimations === 'boolean') {
+        form.setValue('enableAnimations', savedSettings.enableAnimations);
+    }
+    if (typeof savedSettings.enableNotifications === 'boolean') {
+        form.setValue('enableNotifications', savedSettings.enableNotifications);
+    }
+  }, [localPeer, form]);
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      setIsSaving(true)
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      setIsSaving(true);
+      localStorage.setItem("connectshare-settings", JSON.stringify(values));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       toast({
         title: "Settings updated",
         description: "Your settings have been updated successfully.",
-        variant: "default",
-      })
+      });
 
-      // Here you would typically save to a database or local storage
-      localStorage.setItem("connectshare-settings", JSON.stringify(values))
+      if (values.displayName) {
+        if (isSignalingConnected) {
+          if (localPeer?.name !== values.displayName) {
+            toast({ title: "Reconnecting", description: "Updating name with signaling server..." });
+            disconnectSignaling();
+            setTimeout(() => {
+                connectSignaling(values.displayName);
+            }, 500);
+          }
+        }
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to update settings. Please try again.",
+        description: "Failed to update settings.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
-  }
+  };
 
-  const container = {
+  const handleSignalingToggle = () => {
+    const displayName = form.getValues("displayName");
+    if (!displayName || displayName.length < 2) {
+        toast({ title: "Display Name Required", description: "Please enter a valid display name before connecting.", variant: "destructive"});
+        form.setFocus("displayName");
+        return;
+    }
+    if (isSignalingConnected) {
+      disconnectSignaling();
+      toast({ title: "Disconnected", description: "Disconnected from signaling server." });
+    } else {
+      connectSignaling(displayName);
+      toast({ title: "Connecting...", description: "Attempting to connect to signaling server." });
+    }
+  };
+
+    const container = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -86,12 +125,7 @@ export default function SettingsPage() {
 
   return (
     <div className="container max-w-2xl py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-8"
-      >
+      <motion.div /* ... */ >
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-2">Manage your application preferences</p>
       </motion.div>
@@ -118,6 +152,14 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
+                     <div className="flex items-center space-x-2 pt-2">
+                        <Button type="button" onClick={handleSignalingToggle} variant={isSignalingConnected ? "destructive" : "default"}>
+                          {isSignalingConnected ? <LogOut className="mr-2 h-4 w-4" /> : <LogIn className="mr-2 h-4 w-4" />}
+                          {isSignalingConnected ? `Disconnect (as ${localPeer?.name || '...'})` : "Connect to Share"}
+                        </Button>
+                        {isSignalingConnected && <span className="text-sm text-green-600">Connected</span>}
+                        {!isSignalingConnected && localPeer === null && <span className="text-sm text-red-600">Not Connected</span>}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -142,6 +184,7 @@ export default function SettingsPage() {
                       <Button
                         variant="outline"
                         size="icon"
+                        type="button"
                         className={`rounded-full ${theme === "light" ? "bg-primary text-primary-foreground" : ""}`}
                         onClick={() => setTheme("light")}
                       >
@@ -151,6 +194,7 @@ export default function SettingsPage() {
                       <Button
                         variant="outline"
                         size="icon"
+                        type="button"
                         className={`rounded-full ${theme === "dark" ? "bg-primary text-primary-foreground" : ""}`}
                         onClick={() => setTheme("dark")}
                       >
@@ -160,6 +204,7 @@ export default function SettingsPage() {
                       <Button
                         variant="outline"
                         size="icon"
+                        type="button"
                         className={`rounded-full ${theme === "system" ? "bg-primary text-primary-foreground" : ""}`}
                         onClick={() => setTheme("system")}
                       >
@@ -219,29 +264,11 @@ export default function SettingsPage() {
                   <div className="p-6 flex items-center justify-between">
                     <div className="space-y-0.5">
                       <h3 className="font-medium">App Version</h3>
-                      <p className="text-sm text-muted-foreground">Version 1.0.0</p>
+                      <p className="text-sm text-muted-foreground">1.0.0</p>
                     </div>
                     <div className="text-muted-foreground">
                       <Info className="h-5 w-5" />
                     </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="p-6 flex items-center justify-between">
-                    <h3 className="font-medium">Terms of Service</h3>
-                    <Button variant="ghost" size="icon">
-                      <ArrowRight className="h-5 w-5" />
-                    </Button>
-                  </div>
-
-                  <Separator />
-
-                  <div className="p-6 flex items-center justify-between">
-                    <h3 className="font-medium">Privacy Policy</h3>
-                    <Button variant="ghost" size="icon">
-                      <ArrowRight className="h-5 w-5" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
