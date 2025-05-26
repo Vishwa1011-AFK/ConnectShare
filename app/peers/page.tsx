@@ -22,7 +22,8 @@ export default function PeersPage() {
     localPeer, 
     isSignalingConnected, 
     connectSignaling,
-    disconnectPeer 
+    disconnectPeer,
+    requestPeerList
   } = useWebRTC();
   
   const { toast } = useToast()
@@ -71,7 +72,7 @@ export default function PeersPage() {
   const availablePeers = filteredPeers.filter((peer) => peer.status === "available")
   const connectingPeers = filteredPeers.filter((peer) => peer.status === "connecting")
   const connectedPeers = filteredPeers.filter((peer) => peer.status === "connected")
-  const busyPeers = filteredPeers.filter((peer) => peer.status === "failed")
+  const failedOrDisconnectedPeers = filteredPeers.filter((peer) => peer.status === "failed" || peer.status === "disconnected");
 
   const handleConnect = (peerId: string) => {
     const peerToConnect = uiPeers.find(p => p.id === peerId);
@@ -85,7 +86,7 @@ export default function PeersPage() {
   };
 
   const handleDisconnectPeer = (peerId: string) => {
-    disconnectPeer(peerId); // Use context method
+    disconnectPeer(peerId);
     toast({
       title: "Disconnecting...",
       description: `Attempting to disconnect from ${peerId}.`,
@@ -296,13 +297,9 @@ export default function PeersPage() {
         <>
           <PeerSection title="Available Peers" peers={availablePeers} icon={<Wifi className="h-5 w-5" />} />
           <PeerSection title="Connected Peers" peers={connectedPeers} icon={<UserCheck className="h-5 w-5" />} />
-          <PeerSection title="Busy Peers" peers={busyPeers} icon={<UserX className="h-5 w-5" />} />
+          <PeerSection title="Failed/Disconnected" peers={failedOrDisconnectedPeers} icon={<UserX className="h-5 w-5" />} />
         </>
       )}
     </div>
   )
-}
-
-function requestPeerList() {
-  throw new Error("Function not implemented.");
 }

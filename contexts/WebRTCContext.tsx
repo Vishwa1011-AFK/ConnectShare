@@ -77,7 +77,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleWebRTCEvent = (event: WebRTCEvent) => {
-      console.log('Context Event:', event.type, event.payload);
       switch (event.type) {
         case 'signalingConnected': setIsSignalingConnected(true); break;
         case 'signalingDisconnected': 
