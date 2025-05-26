@@ -100,7 +100,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             const { peerId: rtcPeerId, state } = event.payload as { peerId: string, state: RTCIceConnectionState };
             if (state === 'connected') updatePeer({id: rtcPeerId, name: peers.find(p=>p.id === rtcPeerId)?.name || 'Unknown'}, 'connected');
             else if (['disconnected', 'failed', 'closed'].includes(state)) updatePeer({id: rtcPeerId, name: peers.find(p=>p.id === rtcPeerId)?.name || 'Unknown'}, 'disconnected');
-            else if (state === 'connecting' || state === 'new' || state === 'checking') updatePeer({id: rtcPeerId, name: peers.find(p=>p.id === rtcPeerId)?.name || 'Unknown'}, 'connecting');
+            else if (state === 'new' || state === 'checking') updatePeer({id: rtcPeerId, name: peers.find(p=>p.id === rtcPeerId)?.name || 'Unknown'}, 'connecting');
             break;
         case 'dataChannelOpen':
             const dcOpenPayload = event.payload as { peerId: string };

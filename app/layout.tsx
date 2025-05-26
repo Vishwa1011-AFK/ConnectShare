@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import Header from "@/components/header"
 import { Toaster } from "@/components/ui/toaster"
+import { WebRTCProvider } from "@/contexts/WebRTCContext";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -18,7 +19,6 @@ export const metadata: Metadata = {
   keywords: ["file sharing", "p2p", "webrtc", "peer-to-peer"],
   authors: [{ name: "ConnectShare Team" }],
   viewport: "width=device-width, initial-scale=1",
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -30,10 +30,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={cn("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="connectshare-theme">
+          <WebRTCProvider>
           <div className="relative flex min-h-screen flex-col">
             <Header />
             <main className="flex-1">{children}</main>
           </div>
+          </WebRTCProvider>
           <Toaster />
         </ThemeProvider>
       </body>
