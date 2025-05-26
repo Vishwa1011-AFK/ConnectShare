@@ -9,7 +9,7 @@ type FileCardProps = {
   name: string
   size: number
   type: string
-  status?: "pending" | "transferring" | "paused" | "completed" | "error"
+  status?: "pending" | "transferring" | "paused" | "completed" | "error" | "rejected" | "waiting_acceptance"
   progress?: number
 }
 
@@ -49,6 +49,10 @@ export function FileCard({ name, size, type, status, progress }: FileCardProps) 
       case "completed":
         return "bg-green-500/10 text-green-500 hover:bg-green-500/20"
       case "error":
+        return "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+      case "waiting_acceptance":
+        return "bg-purple-500/10 text-purple-500 hover:bg-purple-500/20"
+      case "rejected":
         return "bg-red-500/10 text-red-500 hover:bg-red-500/20"
       default:
         return "bg-secondary text-secondary-foreground"
