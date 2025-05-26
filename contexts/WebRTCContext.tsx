@@ -31,6 +31,8 @@ export interface UIFileTransfer {
 interface WebRTCContextType {
   connectSignaling: (name: string) => void;
   disconnectSignaling: () => void;
+  disconnectPeer: (peerId: string) => void;
+  requestPeerList: () => void;
   isSignalingConnected: boolean;
   localPeer: UIPeer | null;
   peers: UIPeer[];
@@ -69,6 +71,10 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     setActiveTransfers(prev => prev.map(t => t.id === transferId ? { ...t, ...updates } : t));
   }, []);
 
+  const disconnectPeer = useCallback((peerId: string) => {
+    webRTCManager.cleanupPeerConnection(peerId);
+  }, []);
+
   useEffect(() => {
     const handleWebRTCEvent = (event: WebRTCEvent) => {
       console.log('Context Event:', event.type, event.payload);
@@ -85,7 +91,34 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             setLocalPeer({ ...(event.payload as ManagerBasePeer), status: 'available', isLocal: true });
             break;
         case 'peerListUpdated':
-          setPeers((event.payload as ManagerBasePeer[]).map(p => ({ ...p, status: 'available' })));
+          const serverPeerList = (event.payload as ManagerBasePeer[]).filter(p => p.id !== localPeer?.id);
+          setPeers(prevPeers => {
+            const newPeersState: UIPeer[] = [];
+            const serverPeerMap = new Map(serverPeerList.map(p => [p.id, p]));
+
+            serverPeerList.forEach(serverPeer => {
+              const existingUiPeer = prevPeers.find(p => p.id === serverPeer.id);
+              if (existingUiPeer) {
+                newPeersState.push({
+                  ...existingUiPeer,
+                  name: serverPeer.name,
+                  status: (existingUiPeer.status === 'connecting' || existingUiPeer.status === 'connected')
+                            ? existingUiPeer.status
+                            : 'available',
+                });
+              } else {
+                newPeersState.push({ ...serverPeer, status: 'available' });
+              }
+            });
+
+            prevPeers.forEach(prevPeer => {
+              if ((prevPeer.status === 'connected' || prevPeer.status === 'connecting') && !serverPeerMap.has(prevPeer.id)) {
+                newPeersState.push(prevPeer);
+              }
+            });
+
+            return newPeersState;
+          });
           break;
         case 'newPeerArrived':
           if (localPeer && (event.payload as ManagerBasePeer).id !== localPeer.id) {
@@ -154,6 +187,14 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             updateTransfer(receiveComplete.fileId, { status: 'completed', progress: 100, blob: receiveComplete.blob });
             toast({title: "File Received", description: `${receiveComplete.name} received. Ready to save.`});
             break;
+        case 'peerNameChanged' as any:
+          const { peerId: changedPeerId, name: newName } = event.payload as { peerId: string, name: string };
+          setPeers(prev => prev.map(p => p.id === changedPeerId ? { ...p, name: newName } : p));
+          setActiveTransfers(prev => prev.map(t => t.peerId === changedPeerId ? { ...t, peerName: newName } : t));
+          if (localPeer && localPeer.id === changedPeerId) {
+            setLocalPeer(prev => prev ? { ...prev, name: newName } : null);
+          }
+          break;
       }
     };
 
@@ -233,7 +274,9 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   return (
     <WebRTCContext.Provider value={{ 
         connectSignaling, 
-        disconnectSignaling, 
+        disconnectSignaling,
+        disconnectPeer,
+        requestPeerList: useCallback(() => webRTCManager.requestPeerList(), []),
         isSignalingConnected, 
         localPeer, 
         peers, 

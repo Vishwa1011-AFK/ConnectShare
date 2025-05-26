@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -45,6 +44,17 @@ export default function SharePage() {
     contextPeers.filter(p => p.status === 'connected' && p.id !== localPeer?.id),
     [contextPeers, localPeer]
   );
+
+  useEffect(() => {
+  if (selectedPeerId && !shareablePeers.find(p => p.id === selectedPeerId)) {
+    setSelectedPeerId(null);
+    toast({
+      title: "Selected Peer Unavailable",
+      description: "The previously selected peer is no longer connected.",
+      variant: "destructive",
+    });
+  }
+}, [shareablePeers, selectedPeerId, toast]);
 
   const onDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -149,8 +159,6 @@ export default function SharePage() {
     [activeTransfers]
   );
   
-  const isUploading = sendingTransfers.length > 0;
-
   const completedSentTransfers = useMemo(() =>
     activeTransfers.filter(t => t.direction === 'send' && (t.status === 'completed' || t.status === 'rejected')),
     [activeTransfers]
@@ -222,120 +230,25 @@ export default function SharePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.2 }}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Selected Files</h2>
-          {selectedFiles.length > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Trash2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Clear All</span>
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Clear all files?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently remove all selected files.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={clearAllFiles}>Continue</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+        <div className="mb-4">
+          <Select onValueChange={setSelectedPeerId} value={selectedPeerId || undefined}>
+            <SelectTrigger className="w-full sm:w-[300px]">
+              <SelectValue placeholder="Select a peer to share with" />
+            </SelectTrigger>
+            <SelectContent>
+              {shareablePeers.length === 0 && (
+                <SelectItem value="no-peers-available" disabled>
+                  No connected peers available
+                </SelectItem>
+              )}
+              {shareablePeers.map((peer) => (
+                <SelectItem key={peer.id} value={peer.id}>
+                  {peer.name} ({peer.id.substring(0, 6)}...)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-
-        <Card>
-          <CardContent className="p-0">
-            {selectedFiles.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-                <AlertCircle className="h-8 w-8 mb-2 text-muted-foreground/70" />
-                <p>No files selected</p>
-                <p className="text-sm">Files you select will appear here</p>
-              </div>
-            ) : (
-              <div className="overflow-hidden">
-                <div className="hidden md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]"></TableHead>
-                        <TableHead>File Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead className="text-right">Size</TableHead>
-                        <TableHead className="w-[70px]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <AnimatePresence>
-                        {selectedFiles.map((file) => (
-                          <motion.tr
-                            key={file.localId}
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="group"
-                          >
-                            <TableCell>
-                              <div className="w-10 h-10 rounded-md bg-secondary flex items-center justify-center">
-                                <FileIcon className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-medium">{file.file.name}</TableCell>
-                            <TableCell>{file.file.type || "Unknown"}</TableCell>
-                            <TableCell className="text-right">{formatFileSize(file.file.size)}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeFile(file.localId)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <X className="h-4 w-4" />
-                                <span className="sr-only">Remove</span>
-                              </Button>
-                            </TableCell>
-                          </motion.tr>
-                        ))}
-                      </AnimatePresence>
-                    </TableBody>
-                  </Table>
-                </div>
-
-                <div className="md:hidden p-4 space-y-4">
-                  <AnimatePresence>
-                    {selectedFiles.map((file) => (
-                      <motion.div
-                        key={file.localId}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <FileCard name={file.file.name} size={file.file.size} type={file.file.type || "Unknown"} />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeFile(file.localId)}
-                            className="ml-2 shrink-0"
-                          >
-                            <X className="h-4 w-4" />
-                            <span className="sr-only">Remove</span>
-                          </Button>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </motion.div>
 
       <motion.div
@@ -347,7 +260,7 @@ export default function SharePage() {
         <Button
           variant="outline"
           onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
+          disabled={sendingTransfers.length > 0}
           className="sm:order-1"
         >
           Add More Files

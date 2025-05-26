@@ -1,10 +1,8 @@
-"use client"
+"use client";
 
-import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { motion, AnimatePresence } from "framer-motion"
@@ -14,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useWebRTC, UIPeer, PeerStatus as ContextPeerStatus } from "@/contexts/WebRTCContext"
 import Link from "next/link"
+import { Input } from "@/components/ui/input";
 
 export default function PeersPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -23,7 +22,7 @@ export default function PeersPage() {
     localPeer, 
     isSignalingConnected, 
     connectSignaling,
-    disconnectSignaling
+    disconnectPeer 
   } = useWebRTC();
   
   const { toast } = useToast()
@@ -40,6 +39,7 @@ export default function PeersPage() {
         toast({ title: "Not Connected", description: "Connect to signaling in settings first.", variant: "destructive"});
         return;
     }
+    requestPeerList();
     setIsRefreshing(true);
     setTimeout(() => setIsRefreshing(false), 1000); 
   };
@@ -71,7 +71,7 @@ export default function PeersPage() {
   const availablePeers = filteredPeers.filter((peer) => peer.status === "available")
   const connectingPeers = filteredPeers.filter((peer) => peer.status === "connecting")
   const connectedPeers = filteredPeers.filter((peer) => peer.status === "connected")
-  const busyPeers = filteredPeers.filter((peer) => peer.status === "busy")
+  const busyPeers = filteredPeers.filter((peer) => peer.status === "failed")
 
   const handleConnect = (peerId: string) => {
     const peerToConnect = uiPeers.find(p => p.id === peerId);
@@ -85,14 +85,11 @@ export default function PeersPage() {
   };
 
   const handleDisconnectPeer = (peerId: string) => {
-    const rtcPeer = webRTCManager.getPeerConnection(peerId);
-    if (rtcPeer) {
-      webRTCManager.cleanupPeerConnection(peerId);
-      toast({
-        title: "Disconnected",
-        description: `Disconnected from ${rtcPeer.name}.`,
-      });
-    }
+    disconnectPeer(peerId); // Use context method
+    toast({
+      title: "Disconnecting...",
+      description: `Attempting to disconnect from ${peerId}.`,
+    });
   };
 
   const getStatusIcon = (status: ContextPeerStatus) => {
@@ -304,4 +301,8 @@ export default function PeersPage() {
       )}
     </div>
   )
+}
+
+function requestPeerList() {
+  throw new Error("Function not implemented.");
 }

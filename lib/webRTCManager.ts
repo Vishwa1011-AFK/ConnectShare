@@ -47,7 +47,8 @@ export type WebRTCEventType =
   | 'fileRejected'
   | 'fileProgress'
   | 'fileSendComplete'
-  | 'fileReceiveComplete';
+  | 'fileReceiveComplete'
+  | 'peerNameChanged';
 
 export type WebRTCEvent<T = any> = {
   type: WebRTCEventType;
@@ -128,6 +129,8 @@ class WebRTCManager {
         case 'error':
           toast({ title: "Signaling Server Error", description: message.message, variant: "destructive" });
           break;
+        case 'peer-name-updated':
+          this.emitEvent({ type: 'peerNameChanged', payload: { peerId: message.peerId, name: message.name } });
         default:
           console.warn('Unknown signaling message type:', message.type);
       }
@@ -159,6 +162,12 @@ class WebRTCManager {
   
   public getLocalId = () => this.localId;
   public getLocalName = () => this.localName;
+
+  public requestPeerList() {
+  if (this.isSignalingConnected()) {
+    this.sendSignalingMessage({ type: 'get-peers' });
+  }
+}
 
   public addListener = (listener: EventListener) => this.listeners.add(listener);
   public removeListener = (listener: EventListener) => this.listeners.delete(listener);
