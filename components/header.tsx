@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
-import { Settings, Menu } from "lucide-react"
+import { Settings, Menu, Wifi, WifiOff } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { useWebRTC } from "@/contexts/WebRTCContext"
 
 const navItems = [
   { name: "Home", path: "/" },
@@ -23,8 +24,8 @@ export default function Header() {
   const [isHovered, setIsHovered] = useState<string | null>(null)
   const [scrolled, setScrolled] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const { isSignalingConnected, localPeer } = useWebRTC();
 
-  // Handle scroll effect for header
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 10)
@@ -38,17 +39,27 @@ export default function Header() {
     }
   }, [])
 
-  if (!mounted) return null
+  if (!mounted) return (
+    <header className="sticky top-0 z-50 w-full border-b border-transparent bg-background">
+      <div className="container flex h-16 items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="size-8 text-primary animate-pulse bg-muted rounded-full"></div>
+          <div className="h-6 w-32 bg-muted rounded animate-pulse"></div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="h-9 w-9 bg-muted rounded-full animate-pulse"></div>
+        </div>
+      </div>
+    </header>
+  );
 
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-50 w-full border-b transition-all duration-200",
-        scrolled
-          ? "border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-          : "border-transparent bg-background",
-      )}
-    >
+    <header className={cn(
+      "sticky top-0 z-50 w-full border-b transition-all duration-200",
+      scrolled
+        ? "border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+        : "border-transparent bg-background",
+    )}>
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
@@ -69,9 +80,21 @@ export default function Header() {
             </motion.div>
             <span className="text-xl font-bold tracking-tight">ConnectShare</span>
           </Link>
+          <div className="ml-4 flex items-center gap-1 text-xs">
+            {isSignalingConnected ? (
+              <>
+                <Wifi className="h-4 w-4 text-green-500" />
+                <span className="text-green-500 hidden sm:inline">Online</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-4 w-4 text-red-500" />
+                <span className="text-red-500 hidden sm:inline">Offline</span>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
           {navItems.map((item) => (
             <div
@@ -114,12 +137,12 @@ export default function Header() {
               <span className="sr-only">Settings</span>
             </Button>
           </Link>
-          <Avatar className="hidden md:block">
-            <AvatarImage src="/placeholder.svg?height=40&width=40" alt="User" />
-            <AvatarFallback>CS</AvatarFallback>
-          </Avatar>
-
-          {/* Mobile Menu */}
+          {isSignalingConnected && localPeer && (
+            <Avatar className="hidden md:block">
+              <AvatarImage src={`https://avatar.vercel.sh/${localPeer.id}.png`} alt={localPeer.name} />
+              <AvatarFallback>{localPeer.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+          )}
           <Sheet>
             <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="icon" className="rounded-full">
@@ -127,7 +150,7 @@ export default function Header() {
                 <span className="sr-only">Menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[80vw] sm:w-[350px]">
+            <SheetContent side="right" className="w-[80vw] sm:w-[350px]" {...{} as any}>
               <SheetHeader className="mb-6">
                 <SheetTitle className="flex items-center gap-2">
                   <div className="size-6 text-primary">
@@ -144,40 +167,40 @@ export default function Header() {
                 </SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3 mb-6">
-                  <Avatar>
-                    <AvatarImage src="/placeholder.svg?height=40&width=40" alt="User" />
-                    <AvatarFallback>CS</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">User</p>
-                    <p className="text-sm text-muted-foreground">user@example.com</p>
+                {isSignalingConnected && localPeer && (
+                  <div className="flex items-center gap-3 mb-6">
+                    <Avatar>
+                      <AvatarImage src={`https://avatar.vercel.sh/${localPeer.id}.png`} alt={localPeer.name} />
+                      <AvatarFallback>{localPeer.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{localPeer.name}</p>
+                      <p className="text-sm text-muted-foreground">ID: {localPeer.id.substring(0, 6)}...</p>
+                    </div>
                   </div>
-                </div>
-                <nav className="flex flex-col gap-2">
-                  {navItems.map((item) => (
-                    <Link
-                      key={item.path}
-                      href={item.path}
-                      className={cn(
-                        "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                        pathname === item.path ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {item.name}
-                    </Link>
-                  ))}
+                )}
+                {navItems.map((item) => (
                   <Link
-                    href="/settings"
+                    key={item.path}
+                    href={item.path}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                      pathname === "/settings" ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground",
+                      pathname === item.path ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground",
                     )}
                   >
-                    <Settings className="h-4 w-4" />
-                    Settings
+                    {item.name}
                   </Link>
-                </nav>
+                ))}
+                <Link
+                  href="/settings"
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    pathname === "/settings" ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground",
+                  )}
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Link>
               </div>
             </SheetContent>
           </Sheet>
