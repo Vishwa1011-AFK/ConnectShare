@@ -139,6 +139,15 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             updatePeer({id: dcOpenPayload.peerId, name: peers.find(p=>p.id === dcOpenPayload.peerId)?.name || 'Unknown'}, 'connected');
             toast({title: "Peer Connected", description: `Ready to share with ${peers.find(p=>p.id === dcOpenPayload.peerId)?.name || 'peer'}`});
             break;
+        case 'dataChannelClose':
+            const closedPeerId = event.payload.peerId;
+            setActiveTransfers(prev => prev.map(t =>
+              t.peerId === closedPeerId && (t.status === 'transferring' || t.status === 'pending' || t.status === 'waiting_acceptance')
+                ? { ...t, status: 'error', progress: 0 }
+                : t
+            ));
+            toast({ title: "Data Channel Closed", description: `Connection to ${peers.find(p => p.id === closedPeerId)?.name || 'peer'} lost.`, variant: "destructive" });
+            break;
         case 'fileOffered':
             const offer = event.payload as { fileId: string, name: string, size: number, type: string, senderId: string, senderName: string };
             const existingOffer = activeTransfers.find(t => t.id === offer.fileId && t.peerId === offer.senderId && t.direction === 'receive');
@@ -223,6 +232,19 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  useEffect(() => {
+  const timeoutInterval = setInterval(() => {
+    const now = Date.now();
+    setActiveTransfers(prev => prev.map(t => {
+      if ((t.status === 'transferring' || t.status === 'pending') && now - t.timestamp > 30000) { // 30 seconds
+        return { ...t, status: 'error', progress: t.progress };
+      }
+      return t;
+    }));
+  }, 5000); 
+  return () => clearInterval(timeoutInterval);
+}, []);
+
   const sendFile = (peerId: string, file: File): string => {
     const transferId = generateId();
     const peer = peers.find(p => p.id === peerId);
@@ -230,7 +252,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         toast({title: "Error", description: "Peer not found.", variant: "destructive"});
         return transferId;
     }
-
     setActiveTransfers(prev => [...prev, {
       id: transferId,
       fileId: transferId,

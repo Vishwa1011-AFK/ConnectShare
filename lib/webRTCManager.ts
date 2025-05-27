@@ -432,16 +432,20 @@ class WebRTCManager {
   }
 
   public cleanupPeerConnection(peerId: string) {
-    const rtcPeer = this.peerConnections.get(peerId);
-    if (rtcPeer) {
-      if (rtcPeer.dataChannel) {
-        rtcPeer.dataChannel.close();
-      }
-      rtcPeer.pc.close();
-      this.peerConnections.delete(peerId);
-      this.emitEvent({ type: 'peerLeft', payload: { peerId } });
+  const rtcPeer = this.peerConnections.get(peerId);
+  if (rtcPeer) {
+    if (rtcPeer.dataChannel) {
+      rtcPeer.dataChannel.close();
+      this.emitEvent({ type: 'dataChannelClose', payload: { peerId } }); 
     }
+    rtcPeer.pc.close();
+    this.peerConnections.delete(peerId);
+    this.emitEvent({ type: 'peerLeft', payload: { peerId } });
+    rtcPeer.filesToSend.forEach(f =>
+      this.emitEvent({ type: 'fileProgress', payload: { fileId: f.id, peerId, progress: -1, direction: 'send' } })
+    );
   }
+}
 
   public getPeerConnection = (peerId: string) => this.peerConnections.get(peerId);
 }

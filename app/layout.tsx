@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   description: "Direct peer-to-peer file sharing using WebRTC technology",
   keywords: ["file sharing", "p2p", "webrtc", "peer-to-peer"],
   authors: [{ name: "ConnectShare Team" }],
-  viewport: "width=device-width, initial-scale=1",
-}
+};
+export const viewport = "width=device-width, initial-scale=1";
 
 export default function RootLayout({
   children,
