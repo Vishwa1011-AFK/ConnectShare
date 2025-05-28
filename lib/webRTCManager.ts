@@ -131,6 +131,7 @@ class WebRTCManager {
           break;
         case 'peer-name-updated':
           this.emitEvent({ type: 'peerNameChanged', payload: { peerId: message.peerId, name: message.name } });
+          break;
         default:
           console.warn('Unknown signaling message type:', message.type);
       }
@@ -164,10 +165,10 @@ class WebRTCManager {
   public getLocalName = () => this.localName;
 
   public requestPeerList() {
-  if (this.isSignalingConnected()) {
-    this.sendSignalingMessage({ type: 'get-peers' });
+    if (this.isSignalingConnected()) {
+      this.sendSignalingMessage({ type: 'get-peers' });
+    }
   }
-}
 
   public addListener = (listener: EventListener) => this.listeners.add(listener);
   public removeListener = (listener: EventListener) => this.listeners.delete(listener);
@@ -209,7 +210,9 @@ class WebRTCManager {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         this.sendSignalingMessage({ type: 'offer', to: peerId, offer: pc.localDescription });
-      } catch (err) { }
+      } catch (err) { 
+        console.error('Error creating offer:', err);
+      }
       finally { rtcPeer.makingOffer = false; }
     };
 
@@ -228,7 +231,8 @@ class WebRTCManager {
     
     const rtcPeer = await this.createRTCPeerConnection(peerId, peerName, false);
     
-    if (!rtcPeer.pc.getSenders().find(sender => sender.track?.kind === 'application')) {
+    // FIXED: Always create data channel for initiator
+    if (!rtcPeer.dataChannel) {
       const dataChannel = rtcPeer.pc.createDataChannel('fileTransfer', { ordered: true });
       rtcPeer.dataChannel = dataChannel;
       this.setupDataChannelEvents(rtcPeer);
@@ -239,7 +243,10 @@ class WebRTCManager {
       const offer = await rtcPeer.pc.createOffer();
       await rtcPeer.pc.setLocalDescription(offer);
       this.sendSignalingMessage({ type: 'offer', to: peerId, offer: rtcPeer.pc.localDescription });
-    } catch (err) { this.cleanupPeerConnection(peerId); }
+    } catch (err) { 
+      console.error('Error initiating connection:', err);
+      this.cleanupPeerConnection(peerId); 
+    }
     finally { rtcPeer.makingOffer = false; }
   }
 
@@ -257,7 +264,9 @@ class WebRTCManager {
       const answer = await rtcPeer.pc.createAnswer();
       await rtcPeer.pc.setLocalDescription(answer);
       this.sendSignalingMessage({ type: 'answer', to: fromId, answer: rtcPeer.pc.localDescription });
-    } catch (err) { }
+    } catch (err) { 
+      console.error('Error handling offer:', err);
+    }
   }
 
   private async handleAnswer(fromId: string, answer: RTCSessionDescriptionInit) {
@@ -265,7 +274,9 @@ class WebRTCManager {
     if (!rtcPeer) { return; }
     try {
       await rtcPeer.pc.setRemoteDescription(new RTCSessionDescription(answer));
-    } catch (err) { }
+    } catch (err) { 
+      console.error('Error handling answer:', err);
+    }
   }
 
   private async handleIceCandidate(fromId: string, candidate: RTCIceCandidateInit) {
@@ -275,7 +286,9 @@ class WebRTCManager {
       if (candidate) {
         await rtcPeer.pc.addIceCandidate(new RTCIceCandidate(candidate));
       }
-    } catch (err) { }
+    } catch (err) { 
+      console.error('Error handling ICE candidate:', err);
+    }
   }
 
   private setupDataChannelEvents(rtcPeer: WebRTCPeerConnection) {
@@ -283,13 +296,16 @@ class WebRTCManager {
     if (!dataChannel) return;
 
     dataChannel.onopen = () => {
+      console.log(`Data channel opened for peer ${peerId}`);
       this.emitEvent({ type: 'dataChannelOpen', payload: { peerId } });
       this.sendQueuedFiles(peerId);
     };
     dataChannel.onclose = () => {
+      console.log(`Data channel closed for peer ${peerId}`);
       this.emitEvent({ type: 'dataChannelClose', payload: { peerId } });
     };
     dataChannel.onerror = (error) => {
+      console.error(`Data channel error for peer ${peerId}:`, error);
       this.emitEvent({ type: 'dataChannelError', payload: { peerId, error } });
     };
     dataChannel.onmessage = (event) => this.handleDataChannelMessage(event, rtcPeer);
@@ -300,9 +316,18 @@ class WebRTCManager {
     try {
       if (typeof event.data === 'string') {
         const message = JSON.parse(event.data);
+        console.log(`Received message from ${peerId}:`, message.type);
+        
         switch (message.type) {
           case 'file-metadata':
-            rtcPeer.receivingFileInfo = { ...message.payload, id: message.fileId, receivedBytes: 0, chunks: [], senderId: peerId, senderName: peerName };
+            rtcPeer.receivingFileInfo = { 
+              ...message.payload, 
+              id: message.fileId, 
+              receivedBytes: 0, 
+              chunks: [], 
+              senderId: peerId, 
+              senderName: peerName 
+            };
             this.emitEvent({ type: 'fileOffered', payload: { ...rtcPeer.receivingFileInfo } });
             break;
           case 'file-accept':
@@ -338,23 +363,33 @@ class WebRTCManager {
 
   public queueFileForSend(peerId: string, file: File, fileTransferId: string) {
     const rtcPeer = this.peerConnections.get(peerId);
-    if (!rtcPeer) { return; }
+    if (!rtcPeer) { 
+      console.error('Peer connection not found for:', peerId);
+      return; 
+    }
     
+    console.log(`Queueing file ${file.name} for peer ${peerId}`);
     rtcPeer.filesToSend.push({ file, id: fileTransferId, metadataSent: false, offset: 0 });
     
     if (rtcPeer.dataChannel && rtcPeer.dataChannel.readyState === 'open') {
+      console.log('Data channel is open, sending queued files');
       this.sendQueuedFiles(peerId);
     } else {
+      console.log('Data channel not ready, file will be sent when ready. State:', rtcPeer.dataChannel?.readyState);
       toast({ title: "File Queued", description: `${file.name} will be sent once connection is ready.` });
     }
   }
 
   private sendQueuedFiles(peerId: string) {
     const rtcPeer = this.peerConnections.get(peerId);
-    if (!rtcPeer || !rtcPeer.dataChannel || rtcPeer.dataChannel.readyState !== 'open') return;
+    if (!rtcPeer || !rtcPeer.dataChannel || rtcPeer.dataChannel.readyState !== 'open') {
+      console.log('Cannot send queued files - data channel not ready');
+      return;
+    }
 
     const fileDetail = rtcPeer.filesToSend.find(f => !f.metadataSent);
     if (fileDetail) {
+      console.log(`Sending metadata for file: ${fileDetail.file.name}`);
       const metadata = {
         type: 'file-metadata',
         fileId: fileDetail.id,
@@ -368,6 +403,7 @@ class WebRTCManager {
   public acceptFileOffer(peerId: string, fileId: string) {
     const rtcPeer = this.peerConnections.get(peerId);
     if (rtcPeer?.dataChannel?.readyState === 'open') {
+      console.log(`Accepting file offer: ${fileId}`);
       rtcPeer.dataChannel.send(JSON.stringify({ type: 'file-accept', fileId }));
     }
     if (rtcPeer && rtcPeer.receivingFileInfo && rtcPeer.receivingFileInfo.id === fileId) {
@@ -378,6 +414,7 @@ class WebRTCManager {
   public rejectFileOffer(peerId: string, fileId: string) {
     const rtcPeer = this.peerConnections.get(peerId);
     if (rtcPeer?.dataChannel?.readyState === 'open') {
+      console.log(`Rejecting file offer: ${fileId}`);
       rtcPeer.dataChannel.send(JSON.stringify({ type: 'file-reject', fileId }));
     }
     if (rtcPeer && rtcPeer.receivingFileInfo && rtcPeer.receivingFileInfo.id === fileId) {
@@ -390,10 +427,12 @@ class WebRTCManager {
     const fileDetail = rtcPeer?.filesToSend.find(f => f.id === fileTransferId);
 
     if (!rtcPeer || !rtcPeer.dataChannel || rtcPeer.dataChannel.readyState !== 'open' || !fileDetail) {
+      console.error('Cannot send file chunks - missing prerequisites');
       this.emitEvent({ type: 'fileProgress', payload: { fileId: fileTransferId, peerId, progress: -1, direction: 'send' } });
       return;
     }
     
+    console.log(`Starting to send file chunks for: ${fileDetail.file.name}`);
     const { file } = fileDetail;
 
     const sendChunk = () => {
@@ -414,15 +453,18 @@ class WebRTCManager {
               this.emitEvent({ type: 'fileProgress', payload: { fileId: fileTransferId, peerId, progress, direction: 'send' } });
               requestAnimationFrame(sendChunk);
             } catch (e) {
+              console.error('Error sending chunk:', e);
               this.emitEvent({ type: 'fileProgress', payload: { fileId: fileTransferId, peerId, progress: -1, direction: 'send' } });
             }
           }
         };
         reader.onerror = (e) => {
+          console.error('FileReader error:', e);
           this.emitEvent({ type: 'fileProgress', payload: { fileId: fileTransferId, peerId, progress: -1, direction: 'send' } });
         };
         reader.readAsArrayBuffer(chunk);
       } else if (fileDetail.offset >= file.size) {
+        console.log(`File send complete: ${file.name}`);
         this.emitEvent({ type: 'fileSendComplete', payload: { fileId: fileTransferId, peerId, name: file.name } });
         rtcPeer.filesToSend = rtcPeer.filesToSend.filter(f => f.id !== fileTransferId);
         this.sendQueuedFiles(peerId);
@@ -432,20 +474,20 @@ class WebRTCManager {
   }
 
   public cleanupPeerConnection(peerId: string) {
-  const rtcPeer = this.peerConnections.get(peerId);
-  if (rtcPeer) {
-    if (rtcPeer.dataChannel) {
-      rtcPeer.dataChannel.close();
-      this.emitEvent({ type: 'dataChannelClose', payload: { peerId } }); 
+    const rtcPeer = this.peerConnections.get(peerId);
+    if (rtcPeer) {
+      if (rtcPeer.dataChannel) {
+        rtcPeer.dataChannel.close();
+        this.emitEvent({ type: 'dataChannelClose', payload: { peerId } }); 
+      }
+      rtcPeer.pc.close();
+      this.peerConnections.delete(peerId);
+      this.emitEvent({ type: 'peerLeft', payload: { peerId } });
+      rtcPeer.filesToSend.forEach(f =>
+        this.emitEvent({ type: 'fileProgress', payload: { fileId: f.id, peerId, progress: -1, direction: 'send' } })
+      );
     }
-    rtcPeer.pc.close();
-    this.peerConnections.delete(peerId);
-    this.emitEvent({ type: 'peerLeft', payload: { peerId } });
-    rtcPeer.filesToSend.forEach(f =>
-      this.emitEvent({ type: 'fileProgress', payload: { fileId: f.id, peerId, progress: -1, direction: 'send' } })
-    );
   }
-}
 
   public getPeerConnection = (peerId: string) => this.peerConnections.get(peerId);
 }
