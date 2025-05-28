@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useMemo } from "react"
+import React, { useCallback, useEffect, useMemo } from "react" 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -10,47 +10,17 @@ import { Download, FileDown, Clock, Users, CheckCircle2, XCircle, AlertTriangle,
 import { useToast } from "@/hooks/use-toast"
 import { useWebRTC, UIFileTransfer } from "@/contexts/WebRTCContext"
 import { formatFileSize } from "@/lib/utils"
-import { FileCard } from "@/components/file-card"
 import Link from "next/link"
 import { Progress } from "@/components/ui/progress"
 
-export default function ReceivePage() {
-  const { activeTransfers, acceptFileOffer, rejectFileOffer, localPeer, isSignalingConnected, connectSignaling } = useWebRTC();
-  const { toast } = useToast()
+interface TransferListItemProps {
+  transfer: UIFileTransfer;
+  onAccept?: (transferId: string) => void;
+  onReject?: (transferId: string) => void;
+}
 
-  const incomingOffers = useMemo(() =>  {
-    const offers = activeTransfers.filter(t => t.direction === 'receive' && t.status === 'waiting_acceptance').sort((a,b) => b.timestamp - a.timestamp);
-    console.log('[ReceivePage] Calculated incomingOffers:', JSON.stringify(offers.map(o => ({ id: o.id, fileId: o.fileId, name: o.name }))));
-    return offers;
-  },[activeTransfers]);
-
-  const receivingFiles = useMemo(() =>
-    activeTransfers.filter(t => t.direction === 'receive' && t.status === 'transferring').sort((a,b) => b.timestamp - a.timestamp),
-    [activeTransfers]
-  );
-  const completedFiles = useMemo(() =>
-    activeTransfers.filter(t => t.direction === 'receive' && t.status === 'completed').sort((a,b) => b.timestamp - a.timestamp),
-    [activeTransfers]
-  );
-  const rejectedOrErrorFiles = useMemo(() =>
-    activeTransfers.filter(t => t.direction === 'receive' && (t.status === 'rejected' || t.status === 'error')).sort((a,b) => b.timestamp - a.timestamp),
-    [activeTransfers]
-  );
-
-  const handleAcceptFile = (transferId: string) => {
-    console.log('[ReceivePage] handleAcceptFile called with transferId:', transferId, '(Type:', typeof transferId, ')');
-    const transferToAccept = activeTransfers.find(t => t.id === transferId);
-    console.log('[ReceivePage] Transfer object being accepted:', JSON.stringify(transferToAccept)); 
-
-    acceptFileOffer(transferId);
-    toast({ title: "File accepted", description: "The file transfer will begin shortly." });
-  }
-
-  const handleRejectFile = (transferId: string) => {
-    rejectFileOffer(transferId);
-    toast({ title: "File rejected", description: "The file transfer has been rejected." });
-  }
-  
+const TransferListItem = React.memo(function TransferListItem({ transfer, onAccept, onReject }: TransferListItemProps) {
+  const { toast } = useToast(); 
   const handleSaveFile = (blob: Blob | undefined, fileName: string) => {
     if (!blob) {
       toast({ title: "Error", description: "File data not available for download.", variant: "destructive"});
@@ -77,65 +47,100 @@ export default function ReceivePage() {
       default: return { icon: <Clock className="h-3 w-3 mr-1" />, color: "bg-gray-500/10 text-gray-500" };
     }
   }
+  
+  const { icon, color } = getStatusIconAndColor(transfer.status);
 
-  const TransferListItem = ({ transfer }: { transfer: UIFileTransfer }) => {
-    const { icon, color } = getStatusIconAndColor(transfer.status);
-    return (
-        <motion.div
-            key={transfer.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border-b last:border-b-0 border-border/50"
-        >
-            <div className="flex items-center gap-4 mb-2 sm:mb-0">
-                <div className="w-10 h-10 rounded-md bg-secondary flex items-center justify-center">
-                    <FileDown className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-medium">{transfer.name}</h3>
-                        <Badge variant="outline" className={`${color} hover:${color}`}>
-                            {icon} {transfer.status.replace("_", " ")}
-                        </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-                        <span>{formatFileSize(transfer.size)}</span>
-                        <span>•</span>
-                        <div className="flex items-center gap-1">
-                            <span>From:</span>
-                            <Avatar className="h-4 w-4 mr-1">
-                                <AvatarImage src={`https://avatar.vercel.sh/${transfer.peerId}.png`} alt={transfer.peerName} />
-                                <AvatarFallback>{transfer.peerName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <span>{transfer.peerName}</span>
-                        </div>
-                    </div>
-                    {transfer.status === "transferring" && (
-                        <Progress value={transfer.progress} className="w-full sm:w-32 h-2 mt-1 bg-secondary" />
-                    )}
-                </div>
-            </div>
-            <div className="flex gap-2 self-end sm:self-center">
-                {transfer.status === "waiting_acceptance" && (
-                    <>
-                        <Button size="sm" onClick={() => handleAcceptFile(transfer.id)}>Accept</Button>
-                        <Button size="sm" variant="outline" onClick={() => handleRejectFile(transfer.id)}>Reject</Button>
-                    </>
-                )}
-                {transfer.status === "completed" && (
-                    <Button size="sm" variant="outline" className="gap-1" onClick={() => handleSaveFile(transfer.blob, transfer.name)}>
-                        <Download className="h-4 w-4" /> Save
-                    </Button>
-                )}
-                {transfer.status === "error" && (
-                     <Badge variant="destructive">Transfer Failed</Badge>
-                )}
-            </div>
-        </motion.div>
-    );
-  }
+  return (
+      <motion.div
+          key={transfer.id} 
+          layout 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border-b last:border-b-0 border-border/50"
+      >
+          <div className="flex items-center gap-4 mb-2 sm:mb-0">
+              <div className="w-10 h-10 rounded-md bg-secondary flex items-center justify-center">
+                  <FileDown className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-medium">{transfer.name}</h3>
+                      <Badge variant="outline" className={`${color} hover:${color}`}>
+                          {icon} {transfer.status.replace("_", " ")}
+                      </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                      <span>{formatFileSize(transfer.size)}</span>
+                      <span>•</span>
+                      <div className="flex items-center gap-1">
+                          <span>From:</span>
+                          <Avatar className="h-4 w-4 mr-1">
+                              <AvatarImage src={`https://avatar.vercel.sh/${transfer.peerId}.png`} alt={transfer.peerName} />
+                              <AvatarFallback>{transfer.peerName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <span>{transfer.peerName}</span>
+                      </div>
+                  </div>
+                  {transfer.status === "transferring" && (
+                      <Progress value={transfer.progress} className="w-full sm:w-32 h-2 mt-1 bg-secondary" />
+                  )}
+              </div>
+          </div>
+          <div className="flex gap-2 self-end sm:self-center">
+              {transfer.status === "waiting_acceptance" && onAccept && onReject && (
+                  <>
+                      <Button size="sm" onClick={() => onAccept(transfer.id)}>Accept</Button>
+                      <Button size="sm" variant="outline" onClick={() => onReject(transfer.id)}>Reject</Button>
+                  </>
+              )}
+              {transfer.status === "completed" && (
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => handleSaveFile(transfer.blob, transfer.name)}>
+                      <Download className="h-4 w-4" /> Save
+                  </Button>
+              )}
+              {transfer.status === "error" && (
+                   <Badge variant="destructive">Transfer Failed</Badge>
+              )}
+          </div>
+      </motion.div>
+  );
+});
+
+export default function ReceivePage() {
+  const { activeTransfers, acceptFileOffer, rejectFileOffer, isSignalingConnected } = useWebRTC();
+  const { toast } = useToast() 
+
+  const incomingOffers = useMemo(() =>  {
+    const offers = activeTransfers.filter(t => t.direction === 'receive' && t.status === 'waiting_acceptance').sort((a,b) => b.timestamp - a.timestamp);
+    return offers;
+  },[activeTransfers]);
+
+  const receivingFiles = useMemo(() =>
+    activeTransfers.filter(t => t.direction === 'receive' && t.status === 'transferring').sort((a,b) => b.timestamp - a.timestamp),
+    [activeTransfers]
+  );
+  const completedFiles = useMemo(() =>
+    activeTransfers.filter(t => t.direction === 'receive' && t.status === 'completed').sort((a,b) => b.timestamp - a.timestamp),
+    [activeTransfers]
+  );
+  const rejectedOrErrorFiles = useMemo(() =>
+    activeTransfers.filter(t => t.direction === 'receive' && (t.status === 'rejected' || t.status === 'error')).sort((a,b) => b.timestamp - a.timestamp),
+    [activeTransfers]
+  );
+
+  const handleAcceptFile = useCallback((transferId: string) => {
+    acceptFileOffer(transferId); 
+    toast({ title: "File accepted", description: "The file transfer will begin shortly." });
+  }, [acceptFileOffer, toast]);
+
+  const handleRejectFile = useCallback((transferId: string) => {
+    rejectFileOffer(transferId);
+    toast({ title: "File rejected", description: "The file transfer has been rejected." });
+  }, [rejectFileOffer, toast]);
+  
+  // Removed the window object assignments as onAccept/onReject props are now used
 
   if (!isSignalingConnected) {
     return (
@@ -154,12 +159,7 @@ export default function ReceivePage() {
 
   return (
     <div className="container py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-8"
-      >
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Receive Files</h1>
         <p className="text-muted-foreground mt-2">Manage incoming file transfers</p>
       </motion.div>
@@ -169,7 +169,7 @@ export default function ReceivePage() {
             <CardHeader><CardTitle className="text-xl">Incoming File Offers ({incomingOffers.length})</CardTitle></CardHeader>
             <CardContent className="p-0">
                 <AnimatePresence>
-                    {incomingOffers.map((transfer) => <TransferListItem key={transfer.id} transfer={transfer} />)}
+                    {incomingOffers.map((transfer) => <TransferListItem key={transfer.id} transfer={transfer} onAccept={handleAcceptFile} onReject={handleRejectFile} />)}
                 </AnimatePresence>
             </CardContent>
         </Card>

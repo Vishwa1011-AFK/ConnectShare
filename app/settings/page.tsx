@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react" // Ensure React is imported if not already
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { motion } from "framer-motion"
 import { useTheme } from "next-themes"
-import { ArrowRight, Info, Moon, Sun, Laptop, Save, Check, LogIn, LogOut } from "lucide-react"
+import { Info, Moon, Sun, Laptop, Save, Check, LogIn, LogOut } from "lucide-react" // Removed ArrowRight as it's not used
 import { useToast } from "@/hooks/use-toast"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -19,20 +19,17 @@ import { useWebRTC } from "@/contexts/WebRTCContext"
 const formSchema = z.object({
   displayName: z
     .string()
-    .min(2, {
-      message: "Display name must be at least 2 characters.",
-    })
-    .max(30, {
-      message: "Display name must not exceed 30 characters.",
-    }),
+    .min(2, { message: "Display name must be at least 2 characters." })
+    .max(30, { message: "Display name must not exceed 30 characters." }),
   enableAnimations: z.boolean(),
   enableNotifications: z.boolean(),
 })
 
 export default function SettingsPage() {
-  const { theme, setTheme, resolvedTheme } = useTheme()
-  const { toast } = useToast()
-  const [isSaving, setIsSaving] = useState(false)
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false); // For hydration fix
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
   const { connectSignaling, disconnectSignaling, isSignalingConnected, localPeer } = useWebRTC();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -42,9 +39,10 @@ export default function SettingsPage() {
       enableAnimations: true,
       enableNotifications: true,
     },
-  })
+  });
 
   useEffect(() => {
+    setMounted(true); // For hydration fix
     const savedSettings = JSON.parse(localStorage.getItem("connectshare-settings") || "{}");
     if (localPeer) {
       form.setValue('displayName', localPeer.name);
@@ -60,6 +58,7 @@ export default function SettingsPage() {
   }, [localPeer, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // ... (your existing onSubmit logic) ...
     try {
       setIsSaving(true);
       localStorage.setItem("connectshare-settings", JSON.stringify(values));
@@ -93,6 +92,7 @@ export default function SettingsPage() {
   };
 
   const handleSignalingToggle = () => {
+    // ... (your existing handleSignalingToggle logic) ...
     const displayName = form.getValues("displayName");
     if (!displayName || displayName.length < 2) {
         toast({ title: "Display Name Required", description: "Please enter a valid display name before connecting.", variant: "destructive"});
@@ -110,12 +110,7 @@ export default function SettingsPage() {
 
     const container = {
     hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
+    show: { opacity: 1, transition: { staggerChildren: 0.1, }, },
   }
 
   const item = {
@@ -125,7 +120,7 @@ export default function SettingsPage() {
 
   return (
     <div className="container max-w-2xl py-8">
-      <motion.div /* ... */ >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-2">Manage your application preferences</p>
       </motion.div>
@@ -134,7 +129,7 @@ export default function SettingsPage() {
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <motion.div variants={container} initial="hidden" animate="show">
             <motion.div variants={item}>
-              <h2 className="text-xl font-semibold mb-4">General</h2>
+              <h2 className="text-xl font-semibold mb-4 mt-6">General</h2> {/* Added mt-6 for spacing */}
               <Card className="mb-8">
                 <CardContent className="p-6">
                   <div className="space-y-4">
@@ -175,51 +170,30 @@ export default function SettingsPage() {
                         <h3 className="font-medium">Theme</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {theme === "light" && "Light mode"}
-                        {theme === "dark" && "Dark mode"}
-                        {theme === "system" && `System preference (${resolvedTheme})`}
+                        {/* Hydration fix */}
+                        {!mounted ? "Loading theme..." : (
+                            theme === "light" ? "Light mode" :
+                            theme === "dark" ? "Dark mode" :
+                            `System preference (${resolvedTheme})`
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        type="button"
-                        className={`rounded-full ${theme === "light" ? "bg-primary text-primary-foreground" : ""}`}
-                        onClick={() => setTheme("light")}
-                      >
-                        <Sun className="h-5 w-5" />
-                        <span className="sr-only">Light mode</span>
+                      <Button variant="outline" size="icon" type="button" className={`rounded-full ${theme === "light" ? "bg-primary text-primary-foreground" : ""}`} onClick={() => setTheme("light")}>
+                        <Sun className="h-5 w-5" /> <span className="sr-only">Light mode</span>
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        type="button"
-                        className={`rounded-full ${theme === "dark" ? "bg-primary text-primary-foreground" : ""}`}
-                        onClick={() => setTheme("dark")}
-                      >
-                        <Moon className="h-5 w-5" />
-                        <span className="sr-only">Dark mode</span>
+                      <Button variant="outline" size="icon" type="button" className={`rounded-full ${theme === "dark" ? "bg-primary text-primary-foreground" : ""}`} onClick={() => setTheme("dark")}>
+                        <Moon className="h-5 w-5" /> <span className="sr-only">Dark mode</span>
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        type="button"
-                        className={`rounded-full ${theme === "system" ? "bg-primary text-primary-foreground" : ""}`}
-                        onClick={() => setTheme("system")}
-                      >
-                        <Laptop className="h-5 w-5" />
-                        <span className="sr-only">System preference</span>
+                      <Button variant="outline" size="icon" type="button" className={`rounded-full ${theme === "system" ? "bg-primary text-primary-foreground" : ""}`} onClick={() => setTheme("system")}>
+                        <Laptop className="h-5 w-5" /> <span className="sr-only">System preference</span>
                       </Button>
                     </div>
                   </div>
-
                   <Separator />
-
                   <div className="p-6 flex items-center justify-between">
                     <FormField
-                      control={form.control}
-                      name="enableAnimations"
+                      control={form.control} name="enableAnimations"
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg w-full">
                           <div className="space-y-0.5">
@@ -233,13 +207,10 @@ export default function SettingsPage() {
                       )}
                     />
                   </div>
-
                   <Separator />
-
                   <div className="p-6 flex items-center justify-between">
                     <FormField
-                      control={form.control}
-                      name="enableNotifications"
+                      control={form.control} name="enableNotifications"
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg w-full">
                           <div className="space-y-0.5">
@@ -266,9 +237,7 @@ export default function SettingsPage() {
                       <h3 className="font-medium">App Version</h3>
                       <p className="text-sm text-muted-foreground">1.0.0</p>
                     </div>
-                    <div className="text-muted-foreground">
-                      <Info className="h-5 w-5" />
-                    </div>
+                    <div className="text-muted-foreground"> <Info className="h-5 w-5" /> </div>
                   </div>
                 </CardContent>
               </Card>
@@ -277,20 +246,9 @@ export default function SettingsPage() {
             <motion.div variants={item} className="flex justify-end">
               <Button type="submit" disabled={isSaving} className="gap-2">
                 {isSaving ? (
-                  <>
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                    >
-                      <Save className="h-4 w-4" />
-                    </motion.div>
-                    Saving...
-                  </>
+                  <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}><Save className="h-4 w-4" /></motion.div>Saving...</>
                 ) : (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Save Changes
-                  </>
+                  <><Check className="h-4 w-4" />Save Changes</>
                 )}
               </Button>
             </motion.div>
