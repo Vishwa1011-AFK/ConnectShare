@@ -18,10 +18,12 @@ export default function ReceivePage() {
   const { activeTransfers, acceptFileOffer, rejectFileOffer, localPeer, isSignalingConnected, connectSignaling } = useWebRTC();
   const { toast } = useToast()
 
-  const incomingOffers = useMemo(() => 
-    activeTransfers.filter(t => t.direction === 'receive' && t.status === 'waiting_acceptance').sort((a,b) => b.timestamp - a.timestamp),
-    [activeTransfers]
-  );
+  const incomingOffers = useMemo(() =>  {
+    const offers = activeTransfers.filter(t => t.direction === 'receive' && t.status === 'waiting_acceptance').sort((a,b) => b.timestamp - a.timestamp);
+    console.log('[ReceivePage] Calculated incomingOffers:', JSON.stringify(offers.map(o => ({ id: o.id, fileId: o.fileId, name: o.name }))));
+    return offers;
+  },[activeTransfers]);
+
   const receivingFiles = useMemo(() =>
     activeTransfers.filter(t => t.direction === 'receive' && t.status === 'transferring').sort((a,b) => b.timestamp - a.timestamp),
     [activeTransfers]
@@ -36,6 +38,10 @@ export default function ReceivePage() {
   );
 
   const handleAcceptFile = (transferId: string) => {
+    console.log('[ReceivePage] handleAcceptFile called with transferId:', transferId, '(Type:', typeof transferId, ')');
+    const transferToAccept = activeTransfers.find(t => t.id === transferId);
+    console.log('[ReceivePage] Transfer object being accepted:', JSON.stringify(transferToAccept)); 
+
     acceptFileOffer(transferId);
     toast({ title: "File accepted", description: "The file transfer will begin shortly." });
   }
