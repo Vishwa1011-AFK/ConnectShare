@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react" // Ensure React is imported if not already
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { motion } from "framer-motion"
 import { useTheme } from "next-themes"
-import { Info, Moon, Sun, Laptop, Save, Check, LogIn, LogOut } from "lucide-react" // Removed ArrowRight as it's not used
+import { Info, Moon, Sun, Laptop, Save, Check, LogIn, LogOut, Loader2 } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -27,9 +27,10 @@ const formSchema = z.object({
 
 export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false); // For hydration fix
+  const [mounted, setMounted] = useState(false);
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
+  const [isTogglingSignaling, setIsTogglingSignaling] = useState(false);
   const { connectSignaling, disconnectSignaling, isSignalingConnected, localPeer } = useWebRTC();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -42,7 +43,7 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    setMounted(true); // For hydration fix
+    setMounted(true);
     const savedSettings = JSON.parse(localStorage.getItem("connectshare-settings") || "{}");
     if (localPeer) {
       form.setValue('displayName', localPeer.name);
@@ -58,7 +59,6 @@ export default function SettingsPage() {
   }, [localPeer, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    // ... (your existing onSubmit logic) ...
     try {
       setIsSaving(true);
       localStorage.setItem("connectshare-settings", JSON.stringify(values));
@@ -91,24 +91,31 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSignalingToggle = () => {
-    // ... (your existing handleSignalingToggle logic) ...
+  const handleSignalingToggle = async () => {
     const displayName = form.getValues("displayName");
     if (!displayName || displayName.length < 2) {
         toast({ title: "Display Name Required", description: "Please enter a valid display name before connecting.", variant: "destructive"});
         form.setFocus("displayName");
         return;
     }
-    if (isSignalingConnected) {
-      disconnectSignaling();
-      toast({ title: "Disconnected", description: "Disconnected from signaling server." });
-    } else {
-      connectSignaling(displayName);
-      toast({ title: "Connecting...", description: "Attempting to connect to signaling server." });
+    
+    setIsTogglingSignaling(true);
+    
+    try {
+      if (isSignalingConnected) {
+        disconnectSignaling();
+        toast({ title: "Disconnected", description: "Disconnected from signaling server." });
+      } else {
+        connectSignaling(displayName);
+        toast({ title: "Connecting...", description: "Attempting to connect to signaling server." });
+      }
+    } finally {
+      // Add a delay to show the loading state
+      setTimeout(() => setIsTogglingSignaling(false), 1000);
     }
   };
 
-    const container = {
+  const container = {
     hidden: { opacity: 0 },
     show: { opacity: 1, transition: { staggerChildren: 0.1, }, },
   }
@@ -129,7 +136,7 @@ export default function SettingsPage() {
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <motion.div variants={container} initial="hidden" animate="show">
             <motion.div variants={item}>
-              <h2 className="text-xl font-semibold mb-4 mt-6">General</h2> {/* Added mt-6 for spacing */}
+              <h2 className="text-xl font-semibold mb-4 mt-6">General</h2>
               <Card className="mb-8">
                 <CardContent className="p-6">
                   <div className="space-y-4">
@@ -148,12 +155,26 @@ export default function SettingsPage() {
                       )}
                     />
                      <div className="flex items-center space-x-2 pt-2">
-                        <Button type="button" onClick={handleSignalingToggle} variant={isSignalingConnected ? "destructive" : "default"}>
-                          {isSignalingConnected ? <LogOut className="mr-2 h-4 w-4" /> : <LogIn className="mr-2 h-4 w-4" />}
-                          {isSignalingConnected ? `Disconnect (as ${localPeer?.name || '...'})` : "Connect to Share"}
+                        <Button 
+                          type="button" 
+                          onClick={handleSignalingToggle} 
+                          variant={isSignalingConnected ? "destructive" : "default"}
+                          disabled={isTogglingSignaling}
+                        >
+                          {isTogglingSignaling ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {isSignalingConnected ? "Disconnecting..." : "Connecting..."}
+                            </>
+                          ) : (
+                            <>
+                              {isSignalingConnected ? <LogOut className="mr-2 h-4 w-4" /> : <LogIn className="mr-2 h-4 w-4" />}
+                              {isSignalingConnected ? `Disconnect (as ${localPeer?.name || '...'})` : "Connect to Share"}
+                            </>
+                          )}
                         </Button>
-                        {isSignalingConnected && <span className="text-sm text-green-600">Connected</span>}
-                        {!isSignalingConnected && localPeer === null && <span className="text-sm text-red-600">Not Connected</span>}
+                        {isSignalingConnected && !isTogglingSignaling && <span className="text-sm text-green-600">Connected</span>}
+                        {!isSignalingConnected && !isTogglingSignaling && localPeer === null && <span className="text-sm text-red-600">Not Connected</span>}
                     </div>
                   </div>
                 </CardContent>
@@ -170,7 +191,6 @@ export default function SettingsPage() {
                         <h3 className="font-medium">Theme</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {/* Hydration fix */}
                         {!mounted ? "Loading theme..." : (
                             theme === "light" ? "Light mode" :
                             theme === "dark" ? "Dark mode" :

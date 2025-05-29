@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react" // Added React import
+import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ModeToggle } from "./mode-toggle"
@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
-import { Settings, Menu, Wifi, WifiOff } from "lucide-react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet" // Added SheetDescription
+import { Settings, Menu, Wifi, WifiOff } from 'lucide-react'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet"
 import { useWebRTC } from "@/contexts/WebRTCContext"
 
 const navItems = [
@@ -38,39 +38,33 @@ export default function Header() {
   }, [])
 
   if (!mounted) return (
-    // Refined Skeleton - more closely matches final structure
     <header className="sticky top-0 z-50 w-full border-b border-transparent bg-background">
       <div className="container flex h-16 items-center justify-between">
-        {/* Mimic Logo Link Structure */}
         <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2"> {/* Wrapper for logo and text */}
+            <div className="flex items-center gap-2">
                 <div className="size-8 text-primary animate-pulse bg-muted rounded-full"></div>
-                <div className="h-6 w-24 md:w-32 bg-muted rounded animate-pulse"></div> {/* Adjusted width */}
+                <div className="h-6 w-24 md:w-32 bg-muted rounded animate-pulse"></div>
             </div>
-             {/* Placeholder for signaling status (optional if it doesn't cause mismatch) */}
              <div className="ml-4 flex items-center gap-1 text-xs">
                 <div className="h-4 w-4 bg-muted rounded animate-pulse"></div>
                 <div className="h-4 w-10 bg-muted rounded animate-pulse hidden sm:inline"></div>
             </div>
         </div>
         
-        {/* Mimic Nav Structure (Desktop) */}
         <nav className="hidden md:flex items-center gap-6">
           {navItems.map((item, index) => (
-            <div key={index} className="relative"> {/* Use index for skeleton key */}
+            <div key={index} className="relative">
               <div className="h-5 w-12 sm:w-16 bg-muted rounded animate-pulse"></div>
             </div>
           ))}
         </nav>
 
-        {/* Mimic Right Side Controls */}
         <div className="flex items-center gap-4">
-          <div className="h-9 w-9 bg-muted rounded-full animate-pulse"></div> {/* ModeToggle placeholder */}
-          <div className="hidden md:block"> {/* Settings placeholder */}
+          <div className="h-9 w-9 bg-muted rounded-full animate-pulse"></div>
+          <div className="hidden md:block">
             <div className="h-9 w-9 bg-muted rounded-full animate-pulse"></div>
           </div>
-           {/* Avatar placeholder (conditionally rendered, might be okay as is if `localPeer` is usually null on server) */}
-          <div className="md:hidden"> {/* Mobile Menu Trigger placeholder */}
+          <div className="md:hidden">
              <div className="h-9 w-9 bg-muted rounded-full animate-pulse"></div>
           </div>
         </div>
@@ -90,7 +84,7 @@ export default function Header() {
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
             <motion.div
               initial={{ rotate: 0 }}
-              animate={{ rotate: mounted ? 360 : 0 }} // Only animate if mounted
+              animate={{ rotate: mounted ? 360 : 0 }}
               transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear", repeatDelay: 10 }}
               className="size-8 text-primary"
             >
@@ -149,11 +143,11 @@ export default function Header() {
             <SheetContent 
                 side="right" 
                 className="w-[80vw] sm:w-[350px]" 
-                aria-labelledby="mobile-menu-title" // Accessibility fix
-                {...({} as any)} // Keep if needed for Radix/Vaul compatibility issues
+                aria-labelledby="mobile-menu-title"
+                {...({} as any)}
             >
               <SheetHeader className="mb-6">
-                <SheetTitle id="mobile-menu-title" className="flex items-center gap-2"> {/* Accessibility fix */}
+                <SheetTitle id="mobile-menu-title" className="flex items-center gap-2">
                   <div className="size-6 text-primary">
                     <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path fillRule="evenodd" clipRule="evenodd" d="M12.0799 24L4 19.2479L9.95537 8.75216L18.04 13.4961L18.0446 4H29.9554L29.96 13.4961L38.0446 8.75216L44 19.2479L35.92 24L44 28.7521L38.0446 39.2479L29.96 34.5039L29.9554 44H18.0446L18.04 34.5039L9.95537 39.2479L4 28.7521L12.0799 24Z" fill="currentColor" ></path>
@@ -161,7 +155,7 @@ export default function Header() {
                   </div>
                   ConnectShare
                 </SheetTitle>
-                <SheetDescription className="sr-only">Main navigation menu</SheetDescription> {/* Accessibility fix - or more descriptive */}
+                <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
               </SheetHeader>
               <div className="flex flex-col gap-4">
                 {isSignalingConnected && localPeer && (
@@ -177,11 +171,39 @@ export default function Header() {
                   </div>
                 )}
                 {navItems.map((item) => (
-                  <Link key={item.path} href={item.path} className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors", pathname === item.path ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground")}>
+                  <Link key={item.path} href={item.path} className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors relative",
+                    pathname === item.path 
+                      ? "bg-primary/10 text-primary border-l-2 border-primary" 
+                      : "hover:bg-muted text-muted-foreground"
+                  )}>
+                    {pathname === item.path && (
+                      <motion.div
+                        layoutId="mobile-nav-indicator"
+                        className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    )}
                     {item.name}
                   </Link>
                 ))}
-                <Link href="/settings" className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors", pathname === "/settings" ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground")}>
+                <Link href="/settings" className={cn(
+                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors relative",
+                  pathname === "/settings" 
+                    ? "bg-primary/10 text-primary border-l-2 border-primary" 
+                    : "hover:bg-muted text-muted-foreground"
+                )}>
+                  {pathname === "/settings" && (
+                    <motion.div
+                      layoutId="mobile-nav-indicator"
+                      className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.2 }}
+                    />
+                  )}
                   <Settings className="h-4 w-4" /> Settings
                 </Link>
               </div>
