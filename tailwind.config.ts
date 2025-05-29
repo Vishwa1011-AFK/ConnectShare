@@ -80,6 +80,18 @@ const config = {
           from: { transform: "translateY(10px)", opacity: "0" },
           to: { transform: "translateY(0)", opacity: "1" },
         },
+        shimmer: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" }
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" }
+        },
+        scale: {
+          "0%, 100%": { transform: "scale(1)" },
+          "50%": { transform: "scale(1.05)" }
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -87,7 +99,14 @@ const config = {
         "fade-in": "fade-in 0.2s ease-out",
         "fade-out": "fade-out 0.2s ease-out",
         "slide-in": "slide-in 0.2s ease-out",
+        "shimmer": "shimmer 2s infinite linear",
+        "float": "float 6s infinite ease-in-out",
+        "scale": "scale 2s infinite ease-in-out"
       },
+      transitionTimingFunction: {
+        "spring": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+      }
     },
   },
   plugins: [require("tailwindcss-animate")],

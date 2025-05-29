@@ -84,12 +84,19 @@
   }
 }
 
+/* Enhanced File Drop Area */
 .file-drop-area {
-  @apply transition-all duration-300;
+  @apply transition-all duration-300 relative overflow-hidden;
 }
 
 .file-drop-area.drag-active {
-  @apply bg-primary/10 border-primary;
+  @apply bg-primary/10 border-primary scale-[1.02] shadow-lg;
+}
+
+.file-drop-area.drag-active::after {
+  content: '';
+  @apply absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent;
+  animation: shimmer 2s infinite linear;
 }
 
 /* Custom scrollbar */
@@ -99,52 +106,45 @@
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-secondary/50;
+  @apply bg-secondary/50 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/30 rounded-full transition-colors;
+  @apply bg-muted-foreground/30 rounded-full transition-colors hover:bg-muted-foreground/50;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/50;
-}
-
-/* Animations */
+/* Enhanced Animations */
 @keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .animate-pulse-slow {
   animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Progress bar animation */
 @keyframes progress {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .animated-gradient {
-  background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 50%, hsl(var(--primary)) 100%);
+  background: linear-gradient(90deg, 
+    hsl(var(--primary)) 0%, 
+    hsl(var(--secondary)) 50%, 
+    hsl(var(--primary)) 100%
+  );
   background-size: 200% 100%;
   animation: progress 2s linear infinite;
 }
 
-/* Page transitions */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Enhanced Page Transitions */
 .page-transition-enter {
   opacity: 0;
   transform: translateY(10px);
@@ -153,7 +153,7 @@
 .page-transition-enter-active {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 300ms, transform 300ms;
+  transition: opacity 300ms, transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .page-transition-exit {
@@ -164,10 +164,10 @@
 .page-transition-exit-active {
   opacity: 0;
   transform: translateY(-10px);
-  transition: opacity 300ms, transform 300ms;
+  transition: opacity 300ms, transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Responsive spacing utilities */
+/* Enhanced Responsive Spacing */
 .space-y-responsive {
   @apply space-y-4 md:space-y-6 lg:space-y-8;
 }
@@ -184,7 +184,96 @@
   @apply m-4 md:m-6 lg:m-8;
 }
 
-/* Focus styles for better accessibility */
+/* Enhanced Focus Styles */
 .focus-ring {
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+}
+
+/* Enhanced Loading States */
+.loading-skeleton {
+  @apply animate-pulse bg-muted rounded-md;
+  background-size: 200% 100%;
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted-foreground)/10%) 50%,
+    hsl(var(--muted)) 75%
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+/* Enhanced Card Hover Effects */
+.hover-card {
+  @apply transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:border-primary/50;
+}
+
+/* Enhanced Button States */
+.btn-state-layer {
+  @apply absolute inset-0 rounded-md pointer-events-none transition-opacity duration-200;
+}
+
+.btn-hover {
+  @apply hover:bg-primary/90 active:bg-primary/80;
+}
+
+.btn-hover .btn-state-layer {
+  @apply bg-white opacity-0 hover:opacity-[0.08] active:opacity-[0.12];
+}
+
+/* Enhanced Progress Bar */
+.progress-bar-container {
+  @apply relative h-2 w-full overflow-hidden rounded-full bg-secondary;
+}
+
+.progress-bar-fill {
+  @apply h-full bg-primary transition-all duration-300 ease-out;
+  background-image: linear-gradient(
+    90deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: progress 2s linear infinite;
+}
+
+/* Enhanced Toast Animations */
+.toast-enter {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.toast-enter-active {
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform 300ms ease-out, opacity 300ms ease-out;
+}
+
+.toast-exit {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-exit-active {
+  transform: translateX(100%);
+  opacity: 0;
+  transition: transform 300ms ease-in, opacity 300ms ease-in;
+}
+
+/* Enhanced Accessibility Focus Indicators */
+@media (prefers-reduced-motion: no-preference) {
+  :focus {
+    @apply transition-shadow duration-200;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
