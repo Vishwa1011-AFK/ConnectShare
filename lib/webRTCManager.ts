@@ -87,13 +87,29 @@ class WebRTCManager {
     }
 
     this.localName = name;
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    const signalingUrl = `${protocol}//${host}/api/signaling?name=${encodeURIComponent(name)}`;
 
+    let signalingUrlBase: string;
+
+
+    if (process.env.NODE_ENV === 'development') {
+        signalingUrlBase = `ws://localhost:8787`; 
+    } else {
+        const workerUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL;
+        if (!workerUrl) {
+            console.error("FATAL: NEXT_PUBLIC_CF_WORKER_URL is not set for production!");
+            toast({ title: "Configuration Error", description: "Signaling server URL is not configured.", variant: "destructive" });
+            this.emitEvent({ type: 'signalingError', payload: 'Signaling server URL not configured.' });
+            return;
+        }
+        signalingUrlBase = workerUrl.startsWith('ws') ? workerUrl : `wss://${workerUrl}`;
+    }
+    const signalingUrl = `${signalingUrlBase}/?name=${encodeURIComponent(name)}`; 
+
+    console.log(`[WebRTCManager] Attempting to connect to CF Worker signaling: ${signalingUrl}`);
     this.ws = new WebSocket(signalingUrl);
 
     this.ws.onopen = () => {
+      console.log('[WebRTCManager] Signaling WebSocket connected to CF Worker.');
       this.emitEvent({ type: 'signalingConnected' });
     };
 
@@ -104,7 +120,7 @@ class WebRTCManager {
       switch (message.type) {
         case 'registered':
           this.localId = message.peerId;
-          this.localName = message.yourName;
+          this.localName = message.yourName; 
           this.emitEvent({ type: 'localIdAssigned', payload: { id: this.localId, name: this.localName } });
           this.emitEvent({ type: 'peerListUpdated', payload: message.peers });
           break;
@@ -115,7 +131,7 @@ class WebRTCManager {
           this.emitEvent({ type: 'newPeerArrived', payload: message.peer });
           break;
         case 'peer-disconnected':
-          this.cleanupPeerConnection(message.peerId);
+          this.cleanupPeerConnection(message.peerId); 
           this.emitEvent({ type: 'peerLeft', payload: { peerId: message.peerId } });
           break;
         case 'offer':
@@ -128,32 +144,33 @@ class WebRTCManager {
           await this.handleIceCandidate(message.from, message.candidate);
           break;
         case 'error':
-          console.error(`[WebRTCManager] Signaling Server Error: ${message.message}`);
+          console.error(`[WebRTCManager] Signaling Server Error from Worker: ${message.message}`);
           toast({ title: "Signaling Server Error", description: message.message, variant: "destructive" });
           this.emitEvent({ type: 'signalingError', payload: message.message });
           break;
         case 'peer-name-updated':
             this.emitEvent({ type: 'peerNameChanged', payload: { peerId: message.peerId, name: message.name } });
-            const peerToUpdateName = this.peerConnections.get(message.peerId);
-            if (peerToUpdateName) {
-                peerToUpdateName.name = message.name;
+            const peerToUpdateNameClient = this.peerConnections.get(message.peerId);
+            if (peerToUpdateNameClient) {
+                peerToUpdateNameClient.name = message.name;
             }
             break;
         default:
-          console.warn('[WebRTCManager] Unknown signaling message type:', message.type);
+          console.warn('[WebRTCManager] Unknown signaling message type from Worker:', message.type, message);
       }
     };
 
     this.ws.onerror = (errorEvent) => {
-      console.error('[WebRTCManager] Signaling WebSocket error:', errorEvent);
-      this.emitEvent({ type: 'signalingError', payload: 'WebSocket connection error' });
+      console.error('[WebRTCManager] Signaling WebSocket error with CF Worker:', errorEvent);
+      this.emitEvent({ type: 'signalingError', payload: 'WebSocket connection error with CF Worker' });
       this.ws = null;
     };
 
     this.ws.onclose = (closeEvent) => {
+      console.log(`[WebRTCManager] Signaling WebSocket to CF Worker closed. Code: ${closeEvent.code}, Reason: ${closeEvent.reason}`);
       this.emitEvent({ type: 'signalingDisconnected' });
       this.localId = null;
-      this.peerConnections.forEach(conn => this.cleanupPeerConnection(conn.id));
+      this.peerConnections.forEach(conn => this.cleanupPeerConnection(conn.id)); 
       this.peerConnections.clear();
       this.ws = null;
     };
