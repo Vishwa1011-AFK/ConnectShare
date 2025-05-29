@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "esnext",
     "outDir": ".next/server_compiled", 
     "noEmit": false,
     "isolatedModules": false 
