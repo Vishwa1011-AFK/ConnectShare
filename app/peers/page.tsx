@@ -37,16 +37,16 @@ export default function PeersPage() {
   }, [isSignalingConnected, localPeer]);
 
   useEffect(() => {
-    if (isSignalingConnected) {
+    if (isSignalingConnected && localPeer) {
       requestPeerList();
     }
-  }, [isSignalingConnected, requestPeerList]);
+  }, [isSignalingConnected, localPeer, requestPeerList]);
 
   const refreshPeersList = () => {
-    if (!isSignalingConnected) {
+    if (!isSignalingConnected || !localPeer) {
       toast({ 
         title: "Not Connected", 
-        description: "Please wait for the connection to be established.", 
+        description: "Please wait for the connection to be fully established.", 
         variant: "destructive"
       });
       return;
