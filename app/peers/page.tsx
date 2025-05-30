@@ -36,14 +36,24 @@ export default function PeersPage() {
     setIsLoading(!isSignalingConnected && !localPeer);
   }, [isSignalingConnected, localPeer]);
 
+  useEffect(() => {
+    if (isSignalingConnected) {
+      requestPeerList();
+    }
+  }, [isSignalingConnected, requestPeerList]);
+
   const refreshPeersList = () => {
     if (!isSignalingConnected) {
-        toast({ title: "Not Connected", description: "Connect to signaling in settings first.", variant: "destructive"});
-        return;
+      toast({ 
+        title: "Not Connected", 
+        description: "Please wait for the connection to be established.", 
+        variant: "destructive"
+      });
+      return;
     }
     requestPeerList();
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1000); 
+    setTimeout(() => setIsRefreshing(false), 1000);
   };
 
   const handleConnectToSignaling = () => {
