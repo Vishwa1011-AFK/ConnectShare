@@ -90,18 +90,21 @@ class WebRTCManager {
 
     let signalingUrlBase: string;
 
+    const forceLocalSignaling = process.env.NEXT_PUBLIC_FORCE_LOCAL_SIGNALING === 'true';
 
-    if (process.env.NODE_ENV === 'development') {
-        signalingUrlBase = `ws://localhost:8787`; 
+    if (process.env.NODE_ENV === 'development' && forceLocalSignaling) {
+      signalingUrlBase = `ws://localhost:3000/api/signaling`;
+        console.log("Using LOCAL signaling server.");
     } else {
         const workerUrl = process.env.NEXT_PUBLIC_CF_WORKER_URL;
         if (!workerUrl) {
-            console.error("FATAL: NEXT_PUBLIC_CF_WORKER_URL is not set for production!");
+            console.error("FATAL: NEXT_PUBLIC_CF_WORKER_URL is not set!");
             toast({ title: "Configuration Error", description: "Signaling server URL is not configured.", variant: "destructive" });
             this.emitEvent({ type: 'signalingError', payload: 'Signaling server URL not configured.' });
-            return;
+            return; 
         }
         signalingUrlBase = workerUrl.startsWith('ws') ? workerUrl : `wss://${workerUrl}`;
+        console.log("Using CLOUDFLARE signaling server:", signalingUrlBase);
     }
     const signalingUrl = `${signalingUrlBase}/?name=${encodeURIComponent(name)}`; 
 
@@ -110,7 +113,6 @@ class WebRTCManager {
 
     this.ws.onopen = () => {
       console.log('[WebRTCManager] Signaling WebSocket connected to CF Worker.');
-      this.emitEvent({ type: 'signalingConnected' });
     };
 
     this.ws.onmessage = async (event) => {
@@ -119,9 +121,11 @@ class WebRTCManager {
 
       switch (message.type) {
         case 'registered':
+          console.log('[WebRTCManager] Registration completed with ID:', message.peerId);
           this.localId = message.peerId;
           this.localName = message.yourName; 
           this.emitEvent({ type: 'localIdAssigned', payload: { id: this.localId, name: this.localName } });
+          this.emitEvent({ type: 'signalingConnected' });
           this.emitEvent({ type: 'peerListUpdated', payload: message.peers });
           break;
         case 'peer-list':

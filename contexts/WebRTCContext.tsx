@@ -99,10 +99,12 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       
       switch (event.type) {
         case 'signalingConnected': 
+          console.log('[WebRTCContext] Signaling fully connected (websocket open + ID assigned)');
           setIsSignalingConnected(true); 
           break;
           
         case 'signalingDisconnected': 
+          console.log('[WebRTCContext] Signaling disconnected');
           setIsSignalingConnected(false); 
           setLocalPeer(null); 
           setPeers([]); 
@@ -114,16 +116,19 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
           break;
           
         case 'signalingError': 
+          console.log('[WebRTCContext] Signaling error:', event.payload);
           toast({ title: "Signaling Error", description: String(event.payload), variant: "destructive" }); 
           setIsSignalingConnected(false);
           break;
           
         case 'localIdAssigned': 
+          console.log('[WebRTCContext] Local ID assigned:', event.payload);
           const localPeerData = event.payload as ManagerBasePeer;
           setLocalPeer({ ...localPeerData, status: 'available', isLocal: true });
           break;
           
         case 'peerListUpdated':
+          console.log('[WebRTCContext] Peer list updated:', event.payload);
           const serverPeerList = (event.payload as ManagerBasePeer[]).filter(p => p.id !== localPeerRef.current?.id);
           setPeers(prevPeers => {
             const newPeersState: UIPeer[] = [];
