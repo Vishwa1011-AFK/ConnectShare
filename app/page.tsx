@@ -6,6 +6,7 @@ import { motion } from "framer-motion"
 import { ArrowRight, FileUp, Download, Users, Zap, Shield, Wifi, Globe, Sparkles } from 'lucide-react'
 import Link from "next/link"
 import { useTheme } from "next-themes"
+import { TargetAndTransition } from "framer-motion";
 
 export default function Home() {
   const { theme } = useTheme()
@@ -25,7 +26,7 @@ export default function Home() {
     show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
   }
 
-  const floatingAnimation = {
+  const floatingAnimation: TargetAndTransition = {
   y: [-10, 10, -10],
   transition: {
     duration: 6,
@@ -33,7 +34,7 @@ export default function Home() {
     ease: "easeInOut",
     repeatType: "reverse",
   },
-} as const;
+};
 
   const features = [
     {
