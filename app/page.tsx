@@ -26,13 +26,14 @@ export default function Home() {
   }
 
   const floatingAnimation = {
-    y: [-10, 10, -10],
-    transition: {
-      duration: 6,
-      repeat: Infinity,
-      ease: "easeInOut"
-    }
-  }
+  y: [-10, 10, -10],
+  transition: {
+    duration: 6,
+    repeat: Infinity,
+    ease: "easeInOut",
+    repeatType: "reverse",
+  },
+} as const;
 
   const features = [
     {
@@ -67,7 +68,6 @@ export default function Home() {
 
   return (
     <div className="relative overflow-hidden">
-      {/* Background Elements */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute top-0 left-1/4 w-72 h-72 bg-primary/5 rounded-full blur-3xl" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
@@ -109,7 +109,6 @@ export default function Home() {
                 </motion.div>
               </div>
               
-              {/* Floating particles */}
               {[...Array(6)].map((_, i) => (
                 <motion.div
                   key={i}
@@ -184,7 +183,6 @@ export default function Home() {
             </Link>
           </motion.div>
 
-          {/* Benefits */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -239,7 +237,6 @@ export default function Home() {
           ))}
         </motion.div>
 
-        {/* Call to Action Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
