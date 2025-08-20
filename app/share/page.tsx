@@ -212,7 +212,6 @@ export default function SharePage() {
                   multiple
                   className="hidden"
                   onChange={handleFileInputChange}
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
                 />
               </motion.div>
             </div>
